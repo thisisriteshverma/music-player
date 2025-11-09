@@ -143,8 +143,9 @@
     const getSongById = (id) => {
         const song = MOCK_DATA.songs.find(s => s.id === id);
         if (song) {
-            // Dynamically add the correct audio path based on the title
-            // FIX: Use the silent WAV URI instead of the relative path to ensure compatibility in isolated environments (like GitHub)
+            // FIX: HARDCODE the silent WAV URI for the audio property.
+            // This ensures that even when the app is initialized with the default song (ID 102),
+            // the source is the safe, compatible URI, not a broken GitHub path.
             return {
                 ...song,
                 audio: SILENT_WAV_URI 
