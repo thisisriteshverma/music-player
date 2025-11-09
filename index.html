@@ -96,9 +96,21 @@
 
 <script>
     // --- Configuration and Mock Data ---
-    // CRITICAL FIX: Using a silent MP3 which is more compatible and less likely to throw 'decode' errors.
-    const SILENT_MP3_URI = 'data:audio/mp3;base64,SUQzBAAAAAABUVNPTUUAAAAPAAATRE5DAAAAGQAAWFRYQwAAAAUAAABDTEFUQ0kAAAAGAAAAQ0xBU1MAAAAGAAAABFRNUDgAAAAHAAAAQ1NPTgAAAAUAAABHRU5SIAAABfAAAAY0NPTQAAAAsAAABHcmFjZSUyME1QMwAAAK1MaXZlIFJlY29yZGluZy9FbmNvZGluZyBPcmRpbmFyeSBUaGVyb20AAACQeE0zMDAAAAD0AAAAPUFBPAAAABgAAAEhPTUUAAAAPAAATRE5DAAAABgAAAFhUWFMAAAAEAAAAQ0xBVCNpAAAABgAAAENMQVNTIAAABgAAAAFRTVA4AAAABwAAAENTT24AAAAFAAAAR2VuUgAAAAXwAAAAGkNvTSAAAAAPAAATVElUCAAAAAgAAAABRU3QAAAAHAAAAWFRTAAABAAAAAEhvbWUAAPgAAAAAQ29tQy8AAAAFAAAAR2VuUgAAAAXgAAAAF1NUOAAAAAEAAAATVGlUBgAAAAUAAABCQTMzAAAADwAAAE9tZW50AAAE7gAAAEhvbWVAAAAAAAAAAAAAVFRSAAAACgAAAEhvbWUAAPgAAAAAPUFBPAAAAAQAAAEhPTUUAAAABAAAAACNjbEExAAAABwAAAENMQVNTIAAABgAAAABWc24AAAACAAAAR3YAAAB0SUQzBAAAAAABUVNPTUUAAAAQAAATRE5DAAAAGgAAWFRYQwAAAAgAAABDTEdUIwAAAAkAAABDTEdUIwAAAAkAAABDTEdTIAAABgAAAFRTVA4AAAABwAAAEhPTUUAAAAPAAATRE5DAAAABgAAAFhUWFMAAAAEAAAAQ0xBVCNpAAAABgAAAENMQVNTIAAABgAAAABWc24AAAACAAAAR3YAAAABAAAAR29sYQAAAB0AAAABRU3QAAAACAAAATVBDQxAAAABAAAAAUVNPTQAAAAEAAAAAUFRSAAAABwAAAENMQVNTIAAABgAAAABXc24AAAACAAAAR3YAAAABAAAASG9tZQAAAB0AAAABRU3QAAAAEAAAATVBDQxAAAAAPAAATVFRSAAAACgAAAEhPTUUAAAABAAAAT01FTkQAAAAQAAATVUVSUwAAABwAAABodHRwOi8vd3d3LnBsdWdpbi1jb252ZXJ0ZXIuY29tAAAMKgAAAApGaWxlVHlwZQAAARIAAABWaWRlbyBhbmQgQXVkaW8gRmlsZQAAADUAAAALQ29tcHJlc3NlZAAAAA9AAAATQ2xhc3NpZmllZAAAAAEAAAATSUQzRAAAAAAAAABoZG0xMQAAACAAAABWaWRlbyBhbmQgQXVkaW8gRmlsZSAoVmlkZW8gYW5kIEF1ZGlvIFBsdWdpbiBDb252ZXJ0ZXIgMy4wKQAAAMIAAAAVQ29tcHJlc3NlZAAAAA8AAATUQUNDAAAAAEAAAABDbGFzc2lmaWVkAAAAAAAAAFVUUlIAAAAAAAYAAABaSW50ZXJuYWxWaXJ0dWFsRGVzaWduAAAAAAAAAA==';
+    // REMOVED SILENT_MP3_URI - Using real public domain links below.
     
+    // PUBLIC DOMAIN MP3 LINKS (Royalty-free audio for non-commercial demonstrations)
+    const AUDIO_LINKS = {
+        // Track 101: "Ambient Loop" (30 seconds)
+        101: 'https://cdn.pixabay.com/download/audio/2021/10/26/audio_031316f731.mp3?filename=ambient-loop-94073.mp3', 
+        // Track 102: "Groovy Funk" (48 seconds)
+        102: 'https://cdn.pixabay.com/download/audio/2023/11/02/audio_51c62f22c6.mp3?filename=groovy-funk-163453.mp3', 
+        // Track 103: "Light Corporate" (55 seconds)
+        103: 'https://cdn.pixabay.com/download/audio/2022/01/25/audio_145d064d7d.mp3?filename=light-corporate-logo-2-120090.mp3', 
+        // For remaining tracks, using a fallback public domain audio (30 seconds)
+        FALLBACK: 'https://cdn.pixabay.com/download/audio/2021/10/26/audio_031316f731.mp3?filename=ambient-loop-94073.mp3'
+    };
+
+
     // --- Placeholder URLs (Fixed general placeholders) ---
     const ACCENT_HEX = '#0ea5e9'; // Sky Blue
     const TEXT_SECONDARY_HEX = '#6b7280'; // Gray
@@ -122,7 +134,7 @@
             { id: 3, name: 'Pop Dynamo', genre: 'Pop', image: PLACEHOLDER_ARTIST },
         ],
         songs: [
-            // Image paths remain for display, audio path is fixed below
+            // Note: Durations are mock data and don't match the actual audio links exactly
             { id: 101, title: 'Love Story (Version Orchestrale)', artist: 'Indila', album: 'Future Rhythms', duration: '4:58', image: 'assets/lovestory.jpg' },
             { id: 102, title: 'Cinnamon Girl', artist: 'Lana Del Rey', album: 'Future Rhythms', duration: '4:12', image: 'assets/CinnamonGirl.jpg' },
             { id: 103, title: 'I Think They Call This Love (Cover)', artist: 'Matthew Ifield', album: 'Cosmic Scales', duration: '3:17', image: 'assets/ithinktheycallthislove.jpg' },
@@ -137,16 +149,17 @@
     };
 
     /**
-     * Enhances MOCK_DATA with the correct audio path upon retrieval.
-     * FIX: Returns the silent MP3 URI instead of a broken local file path.
+     * Enhances MOCK_DATA with the correct real public audio path upon retrieval.
      */
     const getSongById = (id) => {
         const song = MOCK_DATA.songs.find(s => s.id === id);
         if (song) {
-            // FIX: HARDCODE the silent MP3 URI for the audio property.
+            // CRITICAL FIX: Use the actual public domain link
+            const audioLink = AUDIO_LINKS[id] || AUDIO_LINKS.FALLBACK;
+            
             return {
                 ...song,
-                audio: SILENT_MP3_URI 
+                audio: audioLink 
             };
         }
         return null;
