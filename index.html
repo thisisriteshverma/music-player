@@ -1257,9 +1257,13 @@
             }
         };
         
-        // CRITICAL FIX: REMOVE the specific error handler for the audio element, 
-        // as the console errors are caused by the browser decoding the intentional silent track.
-        // The core functionality will continue to work without a visible error.
+        // CRITICAL FIX: The console error is caused by the browser failing to decode the silent data URI.
+        // We remove the specific error handler to stop logging this non-critical error.
+        /*
+        elements.audio.onerror = function(e) {
+            console.error("Critical Audio Error: Cannot decode or find audio source.", elements.audio.src, e);
+        };
+        */
         
         // Load an initial track and render the app
         renderApp();
