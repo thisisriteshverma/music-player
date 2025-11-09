@@ -96,20 +96,19 @@
 
 <script>
     // --- Configuration and Mock Data ---
-    // REMOVED SILENT_MP3_URI - Using real public domain links below.
-    
-    // PUBLIC DOMAIN MP3 LINKS (Royalty-free audio for non-commercial demonstrations)
-    const AUDIO_LINKS = {
-        // Track 101: "Ambient Loop" (30 seconds)
-        101: 'https://cdn.pixabay.com/download/audio/2021/10/26/audio_031316f731.mp3?filename=ambient-loop-94073.mp3', 
-        // Track 102: "Groovy Funk" (48 seconds)
-        102: 'https://cdn.pixabay.com/download/audio/2023/11/02/audio_51c62f22c6.mp3?filename=groovy-funk-163453.mp3', 
-        // Track 103: "Light Corporate" (55 seconds)
-        103: 'https://cdn.pixabay.com/download/audio/2022/01/25/audio_145d064d7d.mp3?filename=light-corporate-logo-2-120090.mp3', 
-        // For remaining tracks, using a fallback public domain audio (30 seconds)
-        FALLBACK: 'https://cdn.pixabay.com/download/audio/2021/10/26/audio_031316f731.mp3?filename=ambient-loop-94073.mp3'
+    // MAPPING to local files provided by user (located in the assets folder on GitHub)
+    const AUDIO_FILE_MAP = {
+        // ID 101: 'Love Story (Version Orchestrale)'
+        101: 'assets/lovestoryversionorchestrale.mp3', 
+        // ID 102: 'Cinnamon Girl'
+        102: 'assets/CinnamonGirl.mp3', 
+        // ID 103: 'I Think They Call This Love (Cover)'
+        103: 'assets/ithinktheycallthislovecover.mp3', 
+        // ID 104: 'Young and Beautiful'
+        104: 'assets/Youngandbeautiful.mp3', 
+        // ID 105: 'Sweet but Psycho'
+        105: 'assets/sweetbutpsycho.mp3', 
     };
-
 
     // --- Placeholder URLs (Fixed general placeholders) ---
     const ACCENT_HEX = '#0ea5e9'; // Sky Blue
@@ -149,13 +148,13 @@
     };
 
     /**
-     * Enhances MOCK_DATA with the correct real public audio path upon retrieval.
+     * Enhances MOCK_DATA with the correct local audio path upon retrieval.
      */
     const getSongById = (id) => {
         const song = MOCK_DATA.songs.find(s => s.id === id);
         if (song) {
-            // CRITICAL FIX: Use the actual public domain link
-            const audioLink = AUDIO_LINKS[id] || AUDIO_LINKS.FALLBACK;
+            // FIX: Use the specific, correctly named file path from the repository
+            const audioLink = AUDIO_FILE_MAP[id];
             
             return {
                 ...song,
@@ -1260,13 +1259,7 @@
             }
         };
         
-        // CRITICAL FIX: The console error is caused by the browser failing to decode the silent data URI.
-        // We remove the specific error handler to stop logging this non-critical error.
-        /*
-        elements.audio.onerror = function(e) {
-            console.error("Critical Audio Error: Cannot decode or find audio source.", elements.audio.src, e);
-        };
-        */
+        // CRITICAL FIX: Removed the non-critical error log for silent URI.
         
         // Load an initial track and render the app
         renderApp();
