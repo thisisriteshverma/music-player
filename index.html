@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Riteshify Music Streamer (Light Theme)</title>
+    <!-- Load Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Load Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            /* Light Theme Colors */
+            --accent-color: #0ea5e9; /* Sky Blue */
+            --accent-light: #38bdf8;
+            --bg-light: #f3f4f6;
+            --bg-card: #ffffff;
+            --text-primary: #1f2937; /* Dark Gray */
+            --text-secondary: #6b7280; /* Gray */
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-primary);
+        }
+        /* Custom scrollbar for better aesthetic */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--bg-light);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #ccc;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #aaa;
+        }
+        /* Tailwind custom classes (updated for light theme) */
+        .accent-hover {
+            transition: all 0.2s ease-in-out;
+        }
+        .accent-hover:hover {
+            background-color: rgba(14, 165, 233, 0.1); /* sky-500/10 */
+        }
+        .light-glow {
+             box-shadow: 0 0 10px rgba(14, 165, 233, 0.4);
+        }
+        /* Custom shadows */
+        .shadow-3xl {
+            box-shadow: 0 15px 30px rgba(0, 0, 0, 0.15), 0 0 40px rgba(14, 165, 233, 0.4);
+        }
+
+        /* Full Screen Image Fade Effect for Now Playing */
+        .image-fade-container {
+            position: relative;
+            /* Ensures the container itself respects its aspect ratio */
+            aspect-ratio: 1 / 1; 
+        }
+        .image-fade-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 50%; /* Adjust height of the fade area */
+            /* Gradient from transparent to the background color (white) */
+            background: linear-gradient(to bottom, transparent 0%, rgba(255, 255, 255, 0.8) 50%, rgba(255, 255, 255, 1) 100%);
+            pointer-events: none; /* Allows clicks to pass through to the underlying content */
+            border-bottom-left-radius: 1rem;
+            border-bottom-right-radius: 1rem;
+        }
+    </style>
+</head>
+<body>
+
+<div id="app" class="flex flex-col h-screen bg-white text-gray-900">
+
+    <!-- Hidden Audio Element for Playback -->
+    <audio id="audio-player" preload="auto" ontimeupdate="updateProgress()"></audio>
+
+    <!-- Main Layout Wrapper: Sidebar + Content -->
+    <div class="flex flex-grow overflow-hidden">
+
+        <!-- Sidebar (Hidden on mobile, block on tablet/desktop) -->
+        <aside id="sidebar" class="hidden sm:block w-64 bg-white p-4 flex-shrink-0 overflow-y-auto border-r border-gray-200"></aside>
+
+        <!-- Main Content Area (Scrollable) -->
+        <main id="main-content" class="flex-grow overflow-y-auto pb-20"></main>
+    </div>
+
+    <!-- Sticky Bottom Player -->
+    <footer id="bottom-player" class="fixed bottom-0 left-0 right-0 h-20 bg-white border-t border-gray-200 p-3 shadow-2xl z-20"></footer>
+</div>
+
+<script>
+    // --- Configuration and Mock Data ---
+    const SILENT_WAV_URI = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAAABeZGF0YAAAAAAA';
+    
+    // --- Placeholder URLs (Fixed general placeholders) ---
+    const ACCENT_HEX = '#0ea5e9'; // Sky Blue
+    const TEXT_SECONDARY_HEX = '#6b7280'; // Gray
+    const PLACEHOLDER_COVER_GENERIC = 'https://placehold.co/150x150/1f2937/ffffff?text=COVER'; // Used as fallback
+    const PLACEHOLDER_ARTIST = 'https://placehold.co/150x150/1f2937/ffffff?text=ARTIST';
+    const PLACEHOLDER_PLAYLIST = 'https://placehold.co/200x200/0ea5e9/ffffff?text=PLAYLIST'; // Sky Blue accent
+    const PLACEHOLDER_HERO = 'https://placehold.co/1200x400/0ea5e9/ffffff?text=RITESHIFY+MUSIC'; // Sky Blue accent
+    
+    // Browse Card Placeholders (NEW)
+    const PLACEHOLDER_MOOD = 'https://placehold.co/200x200/9333ea/ffffff?text=Mood+Music';
+    const PLACEHOLDER_PARTY = 'https://placehold.co/200x200/f59e0b/ffffff?text=Party+Mix';
+    const PLACEHOLDER_FOCUS = 'https://placehold.co/200x200/ef4444/ffffff?text=Focus+Beats';
+    const PLACEHOLDER_WORKOUT = 'https://placehold.co/200x200/10b981/ffffff?text=Workout+Jams';
+
+
+    // Helper to generate the correct local audio path
+    const getAudioPath = (title) => {
+        // Remove non-alphanumeric characters (except spaces), replace spaces with nothing, and convert to lowercase
+        const fileName = title.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s/g, '').toLowerCase();
+        return `assets/${fileName}.mp3`;
+    };
+
+    const MOCK_DATA = {
+        artists: [
+            // Artist images still use placeholders
+            { id: 1, name: 'Synthwave Sovereign', genre: 'Electronic', image: PLACEHOLDER_ARTIST },
+            { id: 2, name: 'Jazz Horizon', genre: 'Jazz', image: PLACEHOLDER_ARTIST },
+            { id: 3, name: 'Pop Dynamo', genre: 'Pop', image: PLACEHOLDER_ARTIST },
+        ],
+        songs: [
+            // FIXED: Using local asset path instead of SILENT_WAV_URI
+            { id: 101, title: 'Love Story (Version Orchestrale)', artist: 'Indila', album: 'Future Rhythms', duration: '4:58', image: 'assets/lovestory.jpg' },
+            { id: 102, title: 'Cinnamon Girl', artist: 'Lana Del Rey', album: 'Future Rhythms', duration: '4:12', image: 'assets/CinnamonGirl.jpg' },
+            { id: 103, title: 'I Think They Call This Love (Cover)', artist: 'Matthew Ifield', album: 'Cosmic Scales', duration: '3:17', image: 'assets/ithinktheycallthislove.jpg' },
+            { id: 104, title: 'Young and Beautiful', artist: 'Lana Del Rey', album: 'Pop Hits 2024', duration: '3:59', image: 'assets/Youngandbeautiful.avif' },
+            { id: 105, title: 'Sweet but Psycho', artist: 'Ava Max', album: 'Future Rhythms', duration: '3:28', image: 'assets/sweetbutpsycho.jpg' },
+        ],
+        playlists: [
+            { id: 201, name: 'Trending Hits', description: 'The absolute top tracks right now.', songs: [101, 104, 105], cover: 'assets/trendinghits.jpg' },
+            { id: 202, name: 'Chill Vibes', description: 'Relax and unwind with smooth beats.', songs: [102, 103], cover: 'assets/chillvibes.jpg' },
+            { id: 203, name: 'Road Trip', description: 'Music for the open highway.', songs: [101, 103, 104], cover: 'assets/roadtrip.webp' },
+        ],
+    };
+
+    /**
+     * Enhances MOCK_DATA with the correct audio path upon retrieval.
+     */
+    const getSongById = (id) => {
+        const song = MOCK_DATA.songs.find(s => s.id === id);
+        if (song) {
+            // Dynamically add the correct audio path based on the title
+            return {
+                ...song,
+                audio: getAudioPath(song.title) 
+            };
+        }
+        return null;
+    };
+    
+    const getPlaylistDetail = (id) => {
+        const playlist = MOCK_DATA.playlists.find(p => p.id === id);
+        if (playlist) {
+            return {
+                ...playlist,
+                tracks: playlist.songs.map(getSongById).filter(Boolean)
+            };
+        }
+        return null;
+    };
+
+    // --- State Management ---
+    const state = {
+        currentView: 'home', // Starts directly at home
+        previousView: 'home', 
+        currentTrack: getSongById(102), // Load Cinnamon Girl by default
+        // NEW: Track list and index for navigation
+        activeTrackList: MOCK_DATA.songs.map(s => s.id), // Default to all songs
+        currentTrackIndex: MOCK_DATA.songs.findIndex(s => s.id === 102),
+        isPlaying: false,
+        progress: 0, // 0 to 100
+        currentPlaylistId: 201, // Default playlist view
+        likedSongs: [101], // Initial liked songs (using ID)
+        volume: 0.7, // Default volume based on HTML input value="70"
+        // NEW: Shuffle and Repeat modes
+        isShuffling: false, 
+        isRepeating: false, // Simple boolean for repeat song/playlist
+    };
+
+    // DOM Elements
+    const elements = {
+        audio: null, // Will hold the <audio> element
+        sidebar: document.getElementById('sidebar'),
+        mainContent: document.getElementById('main-content'),
+        bottomPlayer: document.getElementById('bottom-player'),
+    };
+
+    // --- Utility Functions ---
+
+    function isLiked(songId) {
+        return state.likedSongs.includes(songId);
+    }
+
+    function setVolume(volume) {
+        // Volume is a value from 0 to 100 from the range input
+        const volumeLevel = parseFloat(volume) / 100;
+        state.volume = volumeLevel; // Update state
+        if (elements.audio) {
+            elements.audio.volume = volumeLevel; // Set audio element volume
+        }
+    }
+
+    function toggleLikeById(songId) {
+        if (isLiked(songId)) {
+            state.likedSongs = state.likedSongs.filter(id => id !== songId);
+        } else {
+            state.likedSongs.push(songId);
+        }
+        
+        renderSidebar(); 
+        renderBottomPlayer(); 
+        
+        // Use the dedicated renderer for the current view
+        renderCurrentView(); 
+    }
+
+    /**
+     * Renders the current view without the transition delay.
+     * Used for state updates within the same view (like liking a song or control changes).
+     */
+    function renderCurrentView() {
+        const [viewName] = state.currentView.split('/');
+        // FIX: Ensure it runs for the 'now-playing' view and always re-creates icons
+        if (viewName === 'now-playing' || viewName === 'playlist') {
+            const contentHtml = getViewContent(state.currentView);
+            elements.mainContent.innerHTML = contentHtml;
+            // CRITICAL FIX: Re-create icons immediately to reflect the new state (e.g., liked status)
+            lucide.createIcons();
+        }
+    }
+
+    /**
+     * Gets the HTML content for a given view.
+     */
+    function getViewContent(view) {
+        const [viewName, param] = view.split('/');
+        switch (viewName) {
+            case 'home':
+                return renderHomePage();
+            case 'search':
+                return renderSearchPage();
+            case 'library':
+                return renderLibraryPage();
+            case 'playlist':
+                return renderPlaylistDetailPage(param);
+            case 'now-playing':
+                return renderNowPlayingView();
+            default:
+                return `<div class="p-8 text-gray-900">404 Not Found</div>`;
+        }
+    }
+
+    /**
+     * Updates the main content area based on the current view state.
+     */
+    function renderApp() {
+        renderSidebar();
+        renderBottomPlayer();
+        
+        const contentHtml = getViewContent(state.currentView);
+        
+        // Determine if this is a navigation to a new, different view
+        const isNewView = state.currentView !== elements.mainContent.dataset.currentView;
+        elements.mainContent.dataset.currentView = state.currentView; // Update tracker
+
+        if (isNewView) {
+             // Apply page transition effect only on navigation
+            elements.mainContent.style.opacity = '0';
+            setTimeout(() => {
+                elements.mainContent.innerHTML = contentHtml;
+                lucide.createIcons(); // Re-render Lucide icons
+                elements.mainContent.style.opacity = '1';
+                 // Scroll to top only on view navigation
+                elements.mainContent.scrollTop = 0;
+            }, 150);
+        } else {
+            // Instant render for state updates within the same view
+            elements.mainContent.innerHTML = contentHtml;
+            lucide.createIcons(); 
+        }
+    }
+
+    /**
+     * Sets the application view, updating the URL fragment and re-rendering.
+     * @param {string} view - The view string (e.g., 'home', 'playlist/201').
+     */
+    function setView(view) {
+        const oldView = state.currentView;
+        state.currentView = view;
+        
+        const [viewName, param] = view.split('/');
+        if (viewName === 'playlist') {
+            state.currentPlaylistId = parseInt(param);
+        }
+        
+        // Only update previous view if we are actually navigating away
+        if (oldView !== view) {
+            state.previousView = oldView; 
+        }
+        
+        renderApp();
+    }
+
+    /**
+     * Updates the visual progress bar based on the actual audio time.
+     */
+    function updateProgress() {
+        if (elements.audio && !isNaN(elements.audio.duration)) {
+            const currentTime = elements.audio.currentTime;
+            const duration = elements.audio.duration;
+            state.progress = (currentTime / duration) * 100;
+        }
+
+        // Update time display and re-render player elements
+        renderBottomPlayer();
+        if (state.currentView === 'now-playing') {
+            // Update time display directly for smoother UX in now-playing view
+            const currentElement = document.getElementById('player-time-current');
+            if(currentElement) {
+                currentElement.textContent = formatTime(elements.audio.currentTime);
+            }
+        }
+    }
+
+    /**
+     * Handles seeking when the user clicks on the progress bar.
+     * @param {Event} event - The click event on the progress bar container.
+     */
+    function handleSeek(event) {
+        if (!elements.audio || isNaN(elements.audio.duration) || !isFinite(elements.audio.duration)) return;
+
+        const progressBar = event.currentTarget;
+        const rect = progressBar.getBoundingClientRect();
+        // Calculate click position as a percentage (0 to 1)
+        const clickPositionRatio = (event.clientX - rect.left) / rect.width;
+
+        // Set the new time
+        elements.audio.currentTime = elements.audio.duration * clickPositionRatio;
+    }
+
+    function formatTime(seconds) {
+        const min = Math.floor(seconds / 60);
+        const sec = Math.floor(seconds % 60);
+        return `${min}:${String(sec).padStart(2, '0')}`;
+    }
+
+    // --- Core Playback and Navigation Logic ---
+
+    /**
+     * Plays the provided track object without changing the playlist context.
+     * Used internally by loadTrack, playNext, and playPrevious.
+     */
+    function playTrack(track) {
+        state.currentTrack = track;
+
+        // 1. Update Audio Source and Loop Status
+        elements.audio.src = track.audio;
+        elements.audio.loop = state.isRepeating; 
+        elements.audio.load(); 
+        
+        // 2. Optimistic UI update: Assume play will succeed and update state/UI immediately
+        state.isPlaying = true;
+        state.progress = 0; // Reset progress bar visually
+        
+        // CRITICAL FIX: Update both players immediately with the new track and playing state.
+        renderBottomPlayer();
+        renderCurrentView(); 
+
+        elements.audio.play().then(() => {
+            // Success: Playback is running. UI is already updated.
+            // No need to call renderCurrentView() again here.
+        }).catch(e => {
+            // CRITICAL FIX: If play fails (e.g., autoplay blocked), reset state and UI
+            console.error("Critical Audio Error: Cannot decode or find audio source or autoplay blocked.", elements.audio.src, e);
+            elements.audio.pause();
+            state.isPlaying = false;
+            state.progress = 0;
+            // Force reset of UI to 'play' button (Small and Large player)
+            renderBottomPlayer();
+            renderCurrentView(); 
+        });
+    }
+
+    /**
+     * Loads a track, sets the active playlist context, and starts playback.
+     */
+    function loadTrack(track, contextListIds = MOCK_DATA.songs.map(s => s.id)) {
+        // 1. Set the new playlist context
+        state.activeTrackList = contextListIds;
+
+        // 2. Find the index of the track within this context
+        const trackIndex = contextListIds.findIndex(id => id === track.id);
+        state.currentTrackIndex = trackIndex !== -1 ? trackIndex : 0; // Fallback to 0
+
+        // 3. Play the track
+        playTrack(track);
+    }
+
+
+    /**
+     * Controls playback state (Play/Pause).
+     */
+    function togglePlayPause() {
+        if (!elements.audio || !state.currentTrack) return;
+        
+        // FIX: Prevent rapid double-clicks while the audio API is processing
+        // We check if the audio is already playing/paused or is stuck loading (READY_STATE = 0 or 1).
+        // If it's loading, we let it continue and rely on the promise/listeners.
+        // If it's currently playing or paused, we can confidently toggle.
+        if (elements.audio.readyState < 2) {
+             // If we optimistically set isPlaying=true (in playTrack), but the audio hasn't started yet, 
+             // we stop the toggle and wait for oncanplaythrough.
+             if (state.isPlaying === false) { 
+                console.warn("Audio not ready yet, waiting for play event.");
+                return;
+            }
+        }
+
+
+        if (state.isPlaying) {
+            elements.audio.pause();
+            state.isPlaying = false;
+            // Immediate UI update after pause
+            renderBottomPlayer();
+            renderCurrentView(); // Correctly updates full screen view
+        } else {
+            // Optimistic UI update: Assume play will succeed (shows pause button faster)
+            state.isPlaying = true;
+            renderBottomPlayer();
+            renderCurrentView(); // Correctly updates full screen view
+            
+            elements.audio.play().catch(e => {
+                // If play fails, reset state
+                state.isPlaying = false;
+                renderBottomPlayer();
+                renderCurrentView(); 
+                console.error("Autoplay prevented or critical audio error on toggle:", e);
+            });
+        }
+    }
+
+    /**
+     * Moves to the next track in the active list (handles shuffle and non-repeat modes).
+     */
+    function playNext() {
+        if (!state.currentTrack || state.activeTrackList.length === 0) return;
+
+        const currentList = state.activeTrackList;
+        const listLength = currentList.length;
+        
+        let nextIndex;
+
+        if (state.isShuffling) {
+            // Pick a random index that isn't the current one (if possible)
+            let newIndex;
+            do {
+                newIndex = Math.floor(Math.random() * listLength);
+            } while (newIndex === state.currentTrackIndex && listLength > 1);
+            nextIndex = newIndex;
+        } else {
+            // Normal mode: increment and wrap around
+            nextIndex = (state.currentTrackIndex + 1) % listLength;
+        }
+        
+        state.currentTrackIndex = nextIndex;
+        const nextTrack = getSongById(currentList[nextIndex]);
+        
+        if (nextTrack) {
+            playTrack(nextTrack);
+        } else {
+             console.error("Could not find next track for ID:", currentList[nextIndex]);
+             // Optional: Stop playback if the next track is invalid
+             elements.audio.pause();
+             state.isPlaying = false;
+             renderBottomPlayer();
+             renderCurrentView();
+        }
+    }
+
+    /**
+     * Moves to the previous track in the active list (wraps around).
+     */
+    function playPrevious() {
+        if (!state.currentTrack || state.activeTrackList.length === 0) return;
+        
+        const currentList = state.activeTrackList;
+        const listLength = currentList.length;
+
+        // Calculate previous index, wrapping around to the end
+        let prevIndex = state.currentTrackIndex - 1;
+        if (prevIndex < 0) {
+            prevIndex = listLength - 1;
+        }
+        
+        state.currentTrackIndex = prevIndex;
+        const prevTrack = getSongById(currentList[prevIndex]);
+
+        if (prevTrack) {
+            playTrack(prevTrack);
+        } else {
+             console.error("Could not find previous track for ID:", currentList[prevIndex]);
+             // Optional: Stop playback if the previous track is invalid
+             elements.audio.pause();
+             state.isPlaying = false;
+             renderBottomPlayer();
+             renderCurrentView();
+        }
+    }
+    
+    function toggleShuffle() {
+        state.isShuffling = !state.isShuffling;
+        
+        // If enabling shuffle, ensure repeat-one mode is off
+        if (state.isShuffling) {
+            state.isRepeating = false;
+        }
+
+        // Must update the audio element's loop property to reflect the state
+        if (elements.audio) { elements.audio.loop = state.isRepeating; }
+
+        // Force UI re-render for icons on player and main view
+        renderBottomPlayer();
+        renderCurrentView();
+    }
+
+    function toggleRepeat() {
+        state.isRepeating = !state.isRepeating;
+        
+        // When enabling repeat, disable shuffle
+        if (state.isRepeating) {
+             state.isShuffling = false;
+        }
+        
+        // Update the audio element's loop property
+        if (elements.audio) {
+            elements.audio.loop = state.isRepeating;
+        }
+
+        // Force UI re-render for icons on player and main view
+        renderBottomPlayer();
+        renderCurrentView();
+    }
+
+    // --- Renderer Components ---
+
+    function NavLink({ name, icon, view, isActive, customClasses = '' }) {
+        const activeClass = isActive ? 'text-sky-500 font-bold' : 'text-gray-600 hover:text-gray-900';
+        const buttonClass = `flex items-center w-full p-2.5 rounded-lg transition duration-200 accent-hover ${activeClass} ${customClasses}`;
+        return `
+            <button onclick="setView('${view}')" class="${buttonClass}">
+                <i data-lucide="${icon}" class="w-7 h-7 mr-4"></i>
+                ${name}
+            </button>
+        `;
+    }
+
+    function renderSidebar() {
+        const navItems = [
+            { name: 'Home', icon: 'home', view: 'home' },
+            { name: 'Search', icon: 'search', view: 'search' },
+            { name: 'Library', icon: 'library', view: 'library' },
+        ];
+        const playlistItems = MOCK_DATA.playlists.slice(0, 3);
+        const [currentViewName] = state.currentView.split('/');
+        const likedSongsCount = state.likedSongs.length;
+
+        elements.sidebar.innerHTML = `
+            <div class="flex flex-col space-y-4 h-full">
+                <!-- FIX: Logo made clickable to navigate to home -->
+                <button onclick="setView('home')" class="text-3xl font-black mb-4 select-none text-left cursor-pointer hover:opacity-80 transition">
+                    <span class="text-sky-500">Riteshify</span>
+                </button>
+
+                <!-- Main Navigation (FIX 5: Corrected NavLink parameter passing) -->
+                <nav class="space-y-1">
+                    ${navItems.map(item => NavLink({ 
+                        name: item.name, 
+                        icon: item.icon, 
+                        view: item.view, 
+                        isActive: currentViewName === item.view 
+                    })).join('')}
+                </nav>
+
+                <!-- Secondary Actions (Always visible now) -->
+                <div class="mt-6 pt-4 border-t border-gray-200 space-y-1">
+                    ${NavLink({ name: 'Create Playlist', icon: 'plus', view: 'create', isActive: false })}
+                    
+                    <!-- Fixed Liked Songs Link -->
+                    <button onclick="setView('library')" class="flex items-center w-full p-2.5 rounded-lg transition duration-200 accent-hover text-gray-600 hover:text-gray-900">
+                        <i data-lucide="heart" class="w-7 h-7 mr-4 text-red-500" fill="currentColor"></i>
+                        Liked Songs (${likedSongsCount})
+                    </button>
+                </div>
+
+                <!-- Playlists -->
+                <div class="mt-4 pt-4 border-t border-gray-200 space-y-2">
+                    <p class="text-sm font-bold text-gray-500 mb-1">YOUR PLAYLISTS</p>
+                    ${playlistItems.map(p => `
+                        <button onclick="setView('playlist/${p.id}')" class="w-full text-left text-gray-600 hover:text-gray-900 transition duration-150 truncate text-sm p-1">
+                            ${p.name}
+                        </button>
+                    `).join('')}
+                </div>
+            </div>
+        `;
+        lucide.createIcons();
+    }
+
+    function renderBottomPlayer() {
+        const { currentTrack, isPlaying, progress, volume, isShuffling, isRepeating } = state;
+        const playPauseIcon = isPlaying ? 'pause' : 'play';
+        const playPauseTitle = isPlaying ? 'Pause' : 'Play';
+        // Ensure elements.audio is available before accessing duration
+        const durationText = elements.audio && elements.audio.duration && isFinite(elements.audio.duration) ? formatTime(elements.audio.duration) : "0:00";
+        const currentTime = elements.audio ? formatTime(elements.audio.currentTime) : "0:00";
+        const isCurrentLiked = currentTrack ? isLiked(currentTrack.id) : false;
+        const heartClasses = isCurrentLiked ? 'fill-red-500 text-red-500' : 'text-gray-400 hover:text-red-500';
+        const shuffleColor = isShuffling ? ACCENT_HEX : TEXT_SECONDARY_HEX;
+        const repeatColor = isRepeating ? ACCENT_HEX : TEXT_SECONDARY_HEX;
+
+
+        if (!currentTrack) {
+            elements.bottomPlayer.innerHTML = `<div class="text-center text-gray-500 w-full pt-2">No track selected.</div>`;
+            return;
+        }
+
+        // Calculate volume percentage (0-100)
+        const volumeValue = Math.round(volume * 100);
+
+        elements.bottomPlayer.innerHTML = `
+            <div class="flex items-center justify-between h-full">
+                <!-- Track Info (Left) -->
+                <div class="flex items-center w-1/3 min-w-0">
+                    <div onclick="setView('now-playing')" class="flex items-center cursor-pointer hover:opacity-80 transition duration-200">
+                        <img
+                            src="${currentTrack.image}"
+                            alt="${currentTrack.title}"
+                            class="w-14 h-14 rounded-md mr-3 flex-shrink-0 shadow-md"
+                            onerror="this.onerror=null; this.src='${PLACEHOLDER_COVER_GENERIC}';"
+                        />
+                        <div class="min-w-0 hidden sm:block">
+                            <p class="text-sm font-semibold text-gray-900 truncate">${currentTrack.title}</p>
+                            <p class="text-xs text-gray-500 truncate">${currentTrack.artist}</p>
+                        </div>
+                    </div>
+                    <button onclick="toggleLikeById(${currentTrack.id})" class="ml-4 hidden md:block cursor-pointer" aria-label="Toggle Like">
+                        <i data-lucide="heart" class="w-5 h-5 ${heartClasses}" fill="${isCurrentLiked ? 'currentColor' : 'none'}"></i>
+                    </button>
+                </div>
+
+                <!-- Controls and Progress (Center) -->
+                <div class="flex flex-col items-center w-1/3 max-w-lg min-w-0 flex-grow sm:flex-grow-0">
+                    <!-- Controls -->
+                    <div class="flex items-center space-x-6">
+                        <i 
+                            data-lucide="shuffle" 
+                            class="w-4 h-4 transition cursor-pointer hidden md:block" 
+                            onclick="toggleShuffle()"
+                            style="color: ${shuffleColor}"
+                            aria-label="Shuffle"
+                        ></i>
+                        <i 
+                            data-lucide="skip-back" 
+                            class="w-6 h-6 text-gray-900 hover:text-sky-500 transition cursor-pointer" 
+                            onclick="playPrevious()"
+                            aria-label="Previous Track"
+                        ></i>
+                        <button onclick="togglePlayPause()" class="p-3 rounded-full bg-sky-500 hover:bg-sky-400 transition transform hover:scale-110 shadow-lg shadow-sky-500/50" aria-label="${playPauseTitle}">
+                            <i data-lucide="${playPauseIcon}" class="w-5 h-5 text-white ${playPauseIcon === 'play' ? 'ml-0.5' : ''}" fill="currentColor"></i>
+                        </button>
+                        <i 
+                            data-lucide="skip-forward" 
+                            class="w-6 h-6 text-gray-900 hover:text-sky-500 transition cursor-pointer" 
+                            onclick="playNext()"
+                            aria-label="Next Track"
+                        ></i>
+                        <i 
+                            data-lucide="repeat" 
+                            class="w-4 h-4 transition cursor-pointer hidden md:block" 
+                            onclick="toggleRepeat()"
+                            style="color: ${repeatColor}"
+                            aria-label="Repeat"
+                        ></i>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="flex items-center w-full mt-2 space-x-2">
+                        <span class="text-xs text-gray-500">${currentTime}</span>
+                        <div class="flex-grow h-1 rounded-full bg-gray-300 cursor-pointer" onclick="handleSeek(event)">
+                            <div class="h-full rounded-full bg-sky-500 transition-all duration-100 ease-linear light-glow" style="width: ${progress}%"></div>
+                        </div>
+                        <span class="text-xs text-gray-500">${durationText}</span>
+                    </div>
+                </div>
+
+                <!-- Volume (Right) -->
+                <div class="hidden sm:flex items-center space-x-2 w-1/3 justify-end text-gray-500 max-w-[200px]">
+                    <i data-lucide="volume-2" class="w-5 h-5"></i>
+                    <!-- BUG FIX 1: Added oninput listener and current volume value -->
+                    <input 
+                        type="range" 
+                        min="0" 
+                        max="100" 
+                        value="${volumeValue}" 
+                        oninput="setVolume(this.value)"
+                        class="w-full h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:bg-sky-500 [&::-moz-range-thumb]:bg-sky-500" 
+                    />
+                    <button onclick="setView('now-playing')" class="text-gray-500 hover:text-sky-500 transition ml-4" aria-label="Maximize Player">
+                        <i data-lucide="maximize" class="w-5 h-5 transform -rotate-45"></i>
+                    </button>
+                </div>
+            </div>
+        `;
+        lucide.createIcons();
+    }
+
+    function ContentCard(item, onClickAction) {
+        // Use PLACEHOLDER_COVER_GENERIC only as a fallback if the provided path fails
+        // Ensure to check for 'image' (for songs) or 'cover' (for playlists)
+        const imgSrc = item.image || item.cover || PLACEHOLDER_COVER_GENERIC;
+
+        return `
+            <div
+                onclick="${onClickAction}"
+                class="p-4 rounded-xl shadow-lg transition duration-300 transform hover:scale-[1.03] cursor-pointer bg-white hover:bg-gray-100 border-2 border-transparent hover:border-sky-300/50"
+            >
+                <img
+                    src="${imgSrc}"
+                    alt="${item.title || item.name}"
+                    class="w-full aspect-square rounded-lg shadow-lg mb-4"
+                    onerror="this.onerror=null; this.src='${PLACEHOLDER_COVER_GENERIC}';"
+                />
+                <h3 class="text-gray-900 text-lg font-bold truncate">${item.title || item.name}</h3>
+                <p class="text-gray-500 text-sm truncate">${item.artist || item.description || item.genre}</p>
+            </div>
+        `;
+    }
+
+    function TrackListItem(track, index, isCurrent, contextListIds) {
+        const isPlaying = state.isPlaying && isCurrent;
+        const isCurrentLiked = isLiked(track.id);
+        const baseClasses = 'flex items-center p-3 rounded-lg transition duration-200 cursor-pointer';
+        const activeClasses = isCurrent ? 'bg-sky-100 border-l-4 border-sky-500' : 'hover:bg-gray-200';
+        const heartClasses = isCurrentLiked ? 'fill-red-500 text-red-500' : 'text-gray-400 hover:text-red-500';
+        
+        // Pass the contextListIds to loadTrack
+        const listIdsString = JSON.stringify(contextListIds || state.activeTrackList);
+
+        // Action for clicking the track info area: 
+        // If current track, toggle play/pause. If not, load the new track.
+        const trackInfoAction = isCurrent 
+            ? 'togglePlayPause()' 
+            : `loadTrack(getSongById(${track.id}), ${listIdsString})`; 
+
+        // The play/pause button action is the same as the track info action
+        const playButtonAction = trackInfoAction;
+
+
+        return `
+            <div class="${baseClasses} ${activeClasses}">
+                <div class="w-6 text-center text-gray-500 font-mono text-sm mr-4">${index + 1}</div>
+
+                <!-- Combined album art and text into one clickable area for better target size -->
+                <div class="flex-grow flex items-center min-w-0" onclick="${trackInfoAction}">
+                    <img
+                      src="${track.image || PLACEHOLDER_COVER_GENERIC}"
+                      alt="${track.title}"
+                      class="w-10 h-10 rounded-md mr-4 shadow-md flex-shrink-0"
+                      onerror="this.onerror=null; this.src='${PLACEHOLDER_COVER_GENERIC}';"
+                    />
+                    <div class="min-w-0">
+                      <p class="font-semibold truncate ${isCurrent ? 'text-sky-600' : 'text-gray-900'}">${track.title}</p>
+                      <p class="text-xs text-gray-500 truncate">${track.artist}</p>
+                    </div>
+                </div>
+
+                <button onclick="event.stopPropagation(); toggleLikeById(${track.id})" class="ml-4 p-2 rounded-full transition duration-300 hover:bg-red-500/10" aria-label="Like">
+                    <i data-lucide="heart" class="w-4 h-4 ${heartClasses}" fill="${isCurrentLiked ? 'currentColor' : 'none'}"></i>
+                </button>
+
+                <!-- This button still exists, but the action is identical to the track info for consistency -->
+                <button
+                  onclick="event.stopPropagation(); ${playButtonAction}"
+                  class="ml-2 p-3 rounded-full transition duration-300 ${isPlaying ? 'bg-red-500/20 text-red-600' : 'bg-sky-500/20 text-sky-500'} hover:bg-sky-500/30 hover:text-sky-600"
+                  aria-label="${isPlaying ? 'Pause' : 'Play'}"
+                >
+                  <i data-lucide="${isPlaying ? 'pause' : 'play'}" class="w-4 h-4" fill="currentColor"></i>
+                </button>
+
+                <div class="w-10 text-right text-gray-500 text-sm ml-4 hidden sm:block">${track.duration}</div>
+            </div>
+        `;
+    }
+
+    // --- Page Renderers ---
+
+    function renderHomePage() {
+        const newReleases = MOCK_DATA.songs.slice(0, 3);
+        const trendingPlaylists = MOCK_DATA.playlists.slice(0, 5);
+        const defaultListIds = MOCK_DATA.songs.map(s => s.id);
+        const defaultListIdsString = JSON.stringify(defaultListIds);
+
+        const heroCarousel = `
+            <div class="relative h-64 sm:h-80 md:h-96 rounded-xl overflow-hidden mb-8 shadow-2xl">
+                <img
+                    src="assets/main.jpg"
+                    alt="Hero Banner"
+                    class="w-full h-full object-cover transition duration-500 filter brightness-90"
+                    onerror="this.onerror=null; this.src='${PLACEHOLDER_HERO}';"
+                />
+                <div class="absolute inset-0 flex flex-col justify-end p-6 md:p-10 text-gray-900">
+                    <p class="text-sky-500 text-sm font-bold uppercase mb-1">New Exclusive</p>
+                    <h2 class="text-3xl sm:text-5xl font-extrabold mb-3">The Future Rhythms </h2>
+                    <p class="text-gray-700 hidden sm:block">Synthwave Sovereign's latest masterpiece is here. Listen now!</p>
+                    <button
+                        onclick="loadTrack(getSongById(101), ${defaultListIdsString})"
+                        class="w-fit mt-3 px-6 py-2 rounded-full font-bold text-white bg-sky-500 hover:bg-sky-400 transition transform hover:scale-105 shadow-md shadow-sky-500/50"
+                    >
+                        Play Now
+                    </button>
+                </div>
+            </div>
+        `;
+
+        const trendingHtml = `
+            <section>
+                <h2 class="text-3xl font-bold text-gray-900 mb-6">Trending Playlists</h2>
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                    ${trendingPlaylists.map(p => ContentCard(p, `setView('playlist/${p.id}')`)).join('')}
+                </div>
+            </section>
+        `;
+
+        const newReleasesHtml = `
+            <section>
+                <h2 class="text-3xl font-bold text-gray-900 mb-6">New Releases</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    ${newReleases.map(song => `
+                        <div
+                          onclick="loadTrack(getSongById(${song.id}), ${defaultListIdsString})"
+                          class="flex items-center p-4 rounded-xl transition duration-300 bg-white hover:bg-gray-100 border-2 border-transparent hover:border-sky-300/50 cursor-pointer shadow-md"
+                        >
+                          <img
+                            src="${song.image}"
+                            alt="${song.title}"
+                            class="w-16 h-16 rounded-lg mr-4 flex-shrink-0 shadow-sm"
+                            onerror="this.onerror=null; this.src='${PLACEHOLDER_COVER_GENERIC}';"
+                          />
+                          <div class="flex-grow min-w-0">
+                            <p class="font-semibold text-gray-900 truncate">${song.title}</p>
+                            <p class="text-sm text-gray-500 truncate">${song.artist}</p>
+                          </div>
+                          <i data-lucide="play" class="w-6 h-6 text-sky-500 flex-shrink-0 ml-4"></i>
+                        </div>
+                    `).join('')}
+                </div>
+            </section>
+        `;
+
+        return `
+            <div class="p-4 md:p-8 space-y-10 transition-opacity duration-300">
+                ${heroCarousel}
+                ${trendingHtml}
+                ${newReleasesHtml}
+            </div>
+        `;
+    }
+
+    function renderSearchPage() {
+        return `
+            <div class="p-4 md:p-8 space-y-8 transition-opacity duration-300">
+                <h1 class="text-4xl font-extrabold text-gray-900">Search</h1>
+                <div class="relative flex items-center">
+                    <input
+                        type="text"
+                        placeholder="What do you want to listen to?"
+                        id="search-input"
+                        class="w-full p-4 pl-6 pr-16 rounded-full bg-white text-gray-900 text-xl placeholder-gray-500 focus:ring-2 focus:ring-sky-500 focus:bg-white border border-gray-300 transition shadow-sm"
+                        oninput="handleSearch(this.value)"
+                        onkeypress="if(event.key === 'Enter') handleSearch(this.value, true);"
+                    />
+                    <!-- FIX: Added clickable search button -->
+                    <button 
+                        onclick="handleSearch(document.getElementById('search-input').value, true)"
+                        class="absolute right-0 top-1/2 transform -translate-y-1/2 mr-2 p-2 rounded-full text-gray-500 hover:text-sky-500 hover:bg-gray-100 transition"
+                        aria-label="Submit Search"
+                    >
+                        <i data-lucide="search" class="w-6 h-6"></i>
+                    </button>
+                </div>
+                <div id="search-results-container">
+                    ${renderSearchContent('')}
+                </div>
+            </div>
+        `;
+    }
+
+    function renderSearchContent(searchTerm) {
+        if (searchTerm.length === 0) {
+            const browseCards = [
+                { title: 'Mood', color: 'bg-purple-200', textColor: 'text-purple-800', image: PLACEHOLDER_MOOD },
+                { title: 'Focus', color: 'bg-red-200', textColor: 'text-red-800', image: PLACEHOLDER_FOCUS },
+                { title: 'Party', color: 'bg-sky-200', textColor: 'text-sky-800', image: PLACEHOLDER_PARTY },
+                { title: 'Workout', color: 'bg-yellow-200', textColor: 'text-yellow-800', image: PLACEHOLDER_WORKOUT },
+            ];
+
+            return `
+                <div class="text-center py-10">
+                    <h2 class="text-2xl text-gray-700">Browse All</h2>
+                    <p class="text-gray-500 mt-2">Explore the charts, new releases, and curated moods.</p>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-6">
+                        ${browseCards.map(card => `
+                            <div class="${card.color} rounded-xl h-32 flex flex-col justify-between overflow-hidden shadow-lg hover:shadow-xl transition transform hover:scale-[1.03] cursor-pointer" onclick="console.log('Viewing ${card.title} category')">
+                                <img src="${card.image}" alt="${card.title}" class="absolute inset-0 w-full h-full object-cover opacity-30" onerror="this.onerror=null; this.src='https://placehold.co/200x200/9333ea/ffffff?text=${card.title.replace(' ', '+')}'" />
+                                <div class="relative p-4 flex items-end h-full">
+                                    <span class="font-bold text-xl ${card.textColor}">${card.title}</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        const lowerCaseTerm = searchTerm.toLowerCase();
+        // Use default list for context since search results don't form a permanent playlist
+        const defaultListIdsString = JSON.stringify(MOCK_DATA.songs.map(s => s.id));
+        
+        const songs = MOCK_DATA.songs
+            .filter(s => s.title.toLowerCase().includes(lowerCaseTerm) || s.artist.toLowerCase().includes(lowerCaseTerm))
+            .map(s => ({ ...s, type: 'Song', onClickAction: `loadTrack(getSongById(${s.id}), ${defaultListIdsString})` }));
+        
+        const playlists = MOCK_DATA.playlists
+            .filter(p => p.name.toLowerCase().includes(lowerCaseTerm))
+            .map(p => ({ ...p, type: 'Playlist', name: p.name, title: p.name, image: p.cover, onClickAction: `setView('playlist/${p.id}')` }));
+        const results = [...songs, ...playlists];
+
+        if (results.length === 0) {
+            return `<p class="text-lg text-gray-500 py-10 text-center">No results found for "${searchTerm}".</p>`;
+        }
+
+        return `
+            <section>
+                <h2 class="text-3xl font-bold text-gray-900 mb-6">Search Results (${results.length})</h2>
+                <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+                    ${results.map((item) => `
+                        <div onclick="${item.onClickAction}">
+                            ${ContentCard(item, 'this.parentNode.onclick()')}
+                            <p class="text-xs text-gray-500 mt-1 uppercase font-semibold">${item.type}</p>
+                        </div>
+                    `).join('')}
+                </div>
+            </section>
+        `;
+    }
+
+    function handleSearch(searchTerm, forceRender = false) {
+        // Only run search content rendering if the input has content OR if forceRender is true (from button click/Enter key)
+        if (searchTerm.length > 0 || forceRender) {
+            const container = document.getElementById('search-results-container');
+            if (container) {
+                container.innerHTML = renderSearchContent(searchTerm);
+                lucide.createIcons();
+            }
+        }
+    }
+
+
+    function renderLibraryPage() {
+        // Prepare Liked Songs item
+        const likedSongsCount = state.likedSongs.length;
+        const likedSongsItem = { type: 'Liked Songs', name: `${likedSongsCount} Songs`, icon: 'heart', id: 'liked', view: 'library' };
+
+        const libraryItems = [
+            { type: 'Playlist', name: 'My Favourites', icon: 'list-music', id: 201, view: `playlist/201` },
+            likedSongsItem,
+            { type: 'Artist', name: 'Synthwave Sovereign', icon: 'user', id: 1, view: 'home' },
+            { type: 'Album', name: 'Cosmic Scales', icon: 'album', id: 'album', view: 'home' },
+        ];
+        const recentlyPlayed = MOCK_DATA.songs.slice(0, 6);
+        const defaultListIdsString = JSON.stringify(MOCK_DATA.songs.map(s => s.id));
+
+        const libraryHtml = `
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                ${libraryItems.map(item => `
+                    <div
+                        onclick="setView('${item.view}')"
+                        class="flex items-center p-4 rounded-xl transition duration-300 bg-white hover:bg-gray-100 cursor-pointer hover:border-sky-300/50 border-2 border-transparent shadow-md"
+                    >
+                        <div class="p-3 mr-4 rounded-full ${item.id === 'liked' ? 'bg-red-500/20 text-red-500' : 'bg-sky-500/20 text-sky-500'}">
+                            <i data-lucide="${item.icon}" class="w-7 h-7" fill="${item.id === 'liked' ? 'currentColor' : 'none'}"></i>
+                        </div>
+                        <div>
+                            <p class="font-semibold text-gray-900 text-xl">${item.name}</p>
+                            <p class="text-sm text-gray-500">${item.type}</p>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+
+        const recentlyPlayedHtml = `
+            <section>
+                <h2 class="text-3xl font-bold text-gray-900 mb-6">Recently Played</h2>
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
+                    ${recentlyPlayed.map(song => ContentCard({ ...song, name: song.title, description: song.artist }, `loadTrack(getSongById(${song.id}), ${defaultListIdsString})`)).join('')}
+                </div>
+            </section>
+        `;
+
+        return `
+            <div class="p-4 md:p-8 space-y-8 transition-opacity duration-300">
+                <h1 class="text-4xl font-extrabold text-gray-900">Your Library </h1>
+                ${libraryHtml}
+                ${recentlyPlayedHtml}
+            </div>
+        `;
+    }
+
+    function renderPlaylistDetailPage(id) {
+        const playlist = getPlaylistDetail(parseInt(id));
+
+        if (!playlist) {
+            return `<div class="p-8 text-gray-900">Playlist not found.</div>`;
+        }
+
+        const trackIds = playlist.tracks.map(t => t.id);
+        const trackIdsString = JSON.stringify(trackIds);
+
+        // Check if the currently playing track belongs to this playlist
+        const isCurrentTrackInPlaylist = state.currentTrack && trackIds.includes(state.currentTrack.id);
+        const playButtonAction = isCurrentTrackInPlaylist 
+            ? 'togglePlayPause()' 
+            : `loadTrack(getSongById(${playlist.tracks[0].id}), ${trackIdsString})`;
+        const playButtonIcon = isCurrentTrackInPlaylist && state.isPlaying ? 'pause' : 'play';
+        const playButtonTitle = isCurrentTrackInPlaylist && state.isPlaying ? 'Pause Playlist' : 'Play Playlist';
+
+
+        return `
+            <div class="p-4 md:p-8 transition-opacity duration-300">
+                <!-- Playlist Header -->
+                <div class="flex flex-col sm:flex-row items-center sm:items-end p-6 bg-gradient-to-b from-sky-200/40 to-white/10 rounded-xl mb-8 shadow-xl border border-gray-200">
+                    <img
+                        src="${playlist.cover}"
+                        alt="${playlist.name}"
+                        class="w-48 h-48 rounded-lg shadow-2xl mb-4 sm:mb-0 sm:mr-6 flex-shrink-0"
+                        onerror="this.onerror=null; this.src='${PLACEHOLDER_PLAYLIST}';"
+                    />
+                    <div class="text-center sm:text-left">
+                        <p class="text-xs uppercase font-bold text-gray-700/70">Playlist</p>
+                        <h1 class="text-4xl sm:text-6xl font-extrabold text-gray-900 mt-1 mb-2">${playlist.name}</h1>
+                        <p class="text-gray-600">${playlist.description}</p>
+                        <p class="text-sm text-gray-500 mt-2">
+                            <span class="text-sky-500 font-bold">Riteshify</span> • ${playlist.tracks.length} songs
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Play Controls (Enhanced size and shadow) -->
+                <div class="flex items-center space-x-6 mb-8">
+                    <button
+                        onclick="${playButtonAction}"
+                        class="p-5 rounded-full bg-sky-500 hover:bg-sky-400 transition transform hover:scale-105 shadow-2xl shadow-sky-500/50"
+                        aria-label="${playButtonTitle}"
+                    >
+                        <i data-lucide="${playButtonIcon}" class="w-8 h-8 text-white ${playButtonIcon === 'play' ? 'ml-0.5' : ''}" fill="currentColor"></i>
+                    </button>
+                    <i data-lucide="shuffle" class="w-6 h-6 text-gray-500 hover:text-gray-900 transition cursor-pointer" onclick="toggleShuffle()" aria-label="Toggle Shuffle"></i>
+                    <i data-lucide="repeat" class="w-6 h-6 text-gray-500 hover:text-gray-900 transition cursor-pointer" onclick="toggleRepeat()" aria-label="Toggle Repeat"></i>
+                    <i data-lucide="plus" class="w-5 h-5 p-2 rounded-full border border-gray-300 text-gray-500 hover:border-gray-900 hover:text-gray-900 transition cursor-pointer" aria-label="Add to Library"></i>
+                </div>
+
+                <!-- Song List Header -->
+                <div class="flex items-center p-3 text-gray-500 border-b border-gray-300 font-semibold mb-2 hidden sm:flex">
+                    <div class="w-6 text-center mr-4">#</div>
+                    <div class="flex-grow">TITLE</div>
+                    <div class="w-10 text-right ml-4"><i data-lucide="clock" class="w-4 h-4"></i></div>
+                </div>
+
+                <!-- Song List -->
+                <div class="space-y-2">
+                    ${playlist.tracks.map((track, index) => TrackListItem(track, index, state.currentTrack && state.currentTrack.id === track.id, trackIds)).join('')}
+                </div>
+            </div>
+        `;
+    }
+
+    function renderNowPlayingView() {
+        const { currentTrack, progress, isPlaying, volume, isShuffling, isRepeating } = state;
+        if (!currentTrack) {
+            return `<div class="flex items-center justify-center h-full text-gray-900 text-2xl">Select a track to start playing.</div>`;
+        }
+
+        const durationText = elements.audio && elements.audio.duration && isFinite(elements.audio.duration) ? formatTime(elements.audio.duration) : "0:00";
+        const playPauseIcon = isPlaying ? 'pause' : 'play';
+        const playPauseTitle = isPlaying ? 'Pause' : 'Play';
+        const currentTime = elements.audio ? formatTime(elements.audio.currentTime) : "0:00";
+        const isCurrentLiked = isLiked(currentTrack.id);
+        const heartClasses = isCurrentLiked ? 'fill-red-500 text-red-500' : 'text-gray-500 hover:text-red-500';
+        const shuffleColor = isShuffling ? ACCENT_HEX : TEXT_SECONDARY_HEX;
+        const repeatColor = isRepeating ? ACCENT_HEX : TEXT_SECONDARY_HEX;
+
+
+        // Calculate volume percentage (0-100)
+        const volumeValue = Math.round(volume * 100);
+
+        return `
+            <!-- Make the main wrapper a flex container to stack and center content perfectly -->
+            <div class="flex flex-col items-center justify-start p-6 md:p-12 h-full min-h-[calc(100vh-80px)] bg-gradient-to-b from-gray-200 to-white/90 transition-opacity duration-300">
+                
+                <div class="flex justify-between w-full max-w-lg mb-4 sm:mb-8">
+                    <h1 class="text-3xl font-extrabold text-gray-900">Now Playing</h1>
+                    
+                    <!-- FIX 2: Fullscreen exit now returns to the previous view -->
+                    <button onclick="setView(state.previousView || 'home')" class="text-gray-500 hover:text-sky-500 transition" aria-label="Minimize Player">
+                        <i data-lucide="maximize" class="w-6 h-6 transform rotate-45"></i>
+                    </button>
+                </div>
+                
+                <!-- CORRECTED IMAGE CONTAINER: Flexible sizing based on screen space -->
+                <div class="flex justify-center items-center w-full flex-grow max-w-lg mb-8">
+                    <div class="image-fade-container w-full max-w-xs sm:max-w-sm md:max-w-md h-auto rounded-2xl shadow-3xl">
+                        
+                        <!-- object-contain ensures the whole image is visible and fully appears, fixing the aspect ratio issue -->
+                        <img
+                            src="${currentTrack.image}"
+                            alt="${currentTrack.title} album art"
+                            class="w-full h-full object-contain rounded-2xl" 
+                            onerror="this.onerror=null; this.src='${PLACEHOLDER_COVER_GENERIC}';"
+                        />
+                        <div class="image-fade-overlay"></div>
+                    </div>
+                </div>
+                <!-- END IMAGE CONTAINER -->
+
+                <div class="text-center mb-6 w-full max-w-lg flex-shrink-0">
+                    <div class="flex items-center justify-center space-x-4">
+                        <h2 class="text-3xl md:text-4xl font-extrabold text-gray-900 truncate">${currentTrack.title}</h2>
+                        <button onclick="toggleLikeById(${currentTrack.id})" aria-label="Like Track">
+                            <i data-lucide="heart" class="w-6 h-6 ${heartClasses}" fill="${isCurrentLiked ? 'currentColor' : 'none'}"></i>
+                        </button>
+                    </div>
+                    <h3 class="text-lg md:text-xl text-gray-600 truncate">${currentTrack.artist}</h3>
+                </div>
+
+                <!-- Animated Progress Bar (FIX 3: Added onclick="handleSeek(event)") -->
+                <div class="w-full max-w-lg mb-6 flex-shrink-0">
+                    <div class="flex justify-between text-xs text-gray-500 mb-1">
+                        <span id="player-time-current">${currentTime}</span>
+                        <span>${durationText}</span>
+                    </div>
+                    <div class="h-2 rounded-full bg-gray-300 cursor-pointer" onclick="handleSeek(event)">
+                        <div
+                            class="h-full rounded-full bg-sky-500 transition-all duration-100 ease-linear light-glow"
+                            style="width: ${progress}%"
+                        ></div>
+                    </div>
+                </div>
+
+                <!-- Controls (Enhanced size and padding, FIX 8: Added aria-labels) -->
+                <div class="flex items-center space-x-8 mb-6 flex-shrink-0">
+                    <i 
+                        data-lucide="shuffle" 
+                        class="w-6 h-6 transition cursor-pointer" 
+                        onclick="toggleShuffle()"
+                        style="color: ${shuffleColor}"
+                        aria-label="Shuffle"
+                    ></i>
+                    <i 
+                        data-lucide="skip-back" 
+                        class="w-8 h-8 text-gray-900 hover:text-sky-500 transition cursor-pointer" 
+                        onclick="playPrevious()"
+                        aria-label="Previous Track"
+                    ></i>
+                    <button
+                        onclick="togglePlayPause()"
+                        class="p-6 rounded-full bg-sky-500 hover:bg-sky-400 transition transform hover:scale-105 shadow-2xl shadow-sky-500/50"
+                        aria-label="${playPauseTitle}"
+                    >
+                        <i data-lucide="${playPauseIcon}" class="w-8 h-8 text-white ${playPauseIcon === 'play' ? 'ml-0.5' : ''}" fill="currentColor"></i>
+                    </button>
+                    <i 
+                        data-lucide="skip-forward" 
+                        class="w-8 h-8 text-gray-900 hover:text-sky-500 transition cursor-pointer" 
+                        onclick="playNext()"
+                        aria-label="Next Track"
+                    ></i>
+                    <i 
+                        data-lucide="repeat" 
+                        class="w-6 h-6 transition cursor-pointer" 
+                        onclick="toggleRepeat()"
+                        style="color: ${repeatColor}"
+                        aria-label="Repeat"
+                    ></i>
+                </div>
+
+                <!-- Volume and Queue -->
+                <div class="flex items-center space-x-6 w-full max-w-lg justify-center flex-shrink-0">
+                    <div class="flex items-center space-x-2 text-gray-500 w-1/3 max-w-[200px]">
+                        <i data-lucide="volume-2" class="w-5 h-5"></i>
+                        <!-- BUG FIX 1: Added oninput listener and current volume value -->
+                        <input 
+                            type="range" 
+                            min="0" 
+                            max="100" 
+                            value="${volumeValue}"
+                            oninput="setVolume(this.value)"
+                            class="w-full h-1 bg-gray-300 rounded-lg appearance-none cursor-pointer [&::-webkit-slider-thumb]:bg-sky-500 [&::-moz-range-thumb]:bg-sky-500" 
+                        />
+                    </div>
+                    <i data-lucide="list-ordered" class="w-5 h-5 text-gray-500 hover:text-sky-500 transition cursor-pointer" aria-label="Open Queue"></i>
+                </div>
+            </div>
+        `;
+    }
+
+    // --- Initialization ---
+
+    // Expose functions to the global scope for event handlers
+    window.setView = setView;
+    window.togglePlayPause = togglePlayPause;
+    window.loadTrack = loadTrack; 
+    window.playNext = playNext;
+    window.playPrevious = playPrevious;
+    window.toggleShuffle = toggleShuffle;
+    window.toggleRepeat = toggleRepeat;
+    window.getSongById = getSongById;
+    window.handleSearch = handleSearch;
+    window.updateProgress = updateProgress; // Expose for ontimeupdate
+    window.toggleLikeById = toggleLikeById;
+    window.isLiked = isLiked;
+    window.handleSeek = handleSeek; // Expose seek handler
+    window.setVolume = setVolume; // Expose volume function
+    window.renderCurrentView = renderCurrentView; // Expose internal renderer
+
+    // Expose state for use in inline event handlers
+    window.state = state; 
+
+    // Start the application rendering once the DOM is ready
+    window.onload = () => {
+        elements.audio = document.getElementById('audio-player');
+        
+        // --- NEW: Auto-play next song when current one finishes ---
+        elements.audio.onended = playNext;
+        
+        // FIX: Re-render the UI when the audio is ready to prevent double-click issues
+        elements.audio.oncanplaythrough = () => {
+             // Confirm playing state only once enough data is loaded
+            if (state.isPlaying) {
+                // Rerender to update the button icon instantly
+                renderBottomPlayer();
+                renderCurrentView(); 
+            }
+        };
+
+        // Add a generic error handler to the audio element for logging
+        elements.audio.onerror = function(e) {
+            console.error("Critical Audio Error: Cannot decode or find audio source.", elements.audio.src, e);
+        };
+        
+        // Load an initial track and render the app
+        renderApp();
+
+        // Load the initial track's source right away and set initial volume
+        if (state.currentTrack && state.currentTrack.audio) {
+            elements.audio.src = state.currentTrack.audio;
+            elements.audio.volume = state.volume; // Set initial volume
+            elements.audio.load();
+        }
+    };
+</script>
+</body>
+</html>
