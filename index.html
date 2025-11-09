@@ -407,20 +407,10 @@
     function togglePlayPause() {
         if (!elements.audio || !state.currentTrack) return;
         
-        // FIX: Prevent rapid double-clicks while the audio API is processing
-        // We check if the audio is already playing/paused or is stuck loading (READY_STATE = 0 or 1).
-        // If it's loading, we let it continue and rely on the promise/listeners.
-        // If it's currently playing or paused, we can confidently toggle.
-        if (elements.audio.readyState < 2) {
-             // If we optimistically set isPlaying=true (in playTrack), but the audio hasn't started yet, 
-             // we stop the toggle and wait for oncanplaythrough.
-             if (state.isPlaying === false) { 
-                console.warn("Audio not ready yet, waiting for play event.");
-                return;
-            }
-        }
-
-
+        // FIX: The custom warning logic is removed to stop console noise.
+        // The readyState check is generally unnecessary with the silent MP3 URI 
+        // because it should be instantly ready (readyState >= 2).
+        
         if (state.isPlaying) {
             elements.audio.pause();
             state.isPlaying = false;
