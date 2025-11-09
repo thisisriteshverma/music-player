@@ -96,6 +96,7 @@
 
 <script>
     // --- Configuration and Mock Data ---
+    // This silent WAV URI is used as the audio source to ensure compatibility when actual music files are not present (e.g., on GitHub).
     const SILENT_WAV_URI = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAAABeZGF0YAAAAAAA';
     
     // --- Placeholder URLs (Fixed general placeholders) ---
@@ -113,13 +114,6 @@
     const PLACEHOLDER_WORKOUT = 'https://placehold.co/200x200/10b981/ffffff?text=Workout+Jams';
 
 
-    // Helper to generate the correct local audio path
-    const getAudioPath = (title) => {
-        // Remove non-alphanumeric characters (except spaces), replace spaces with nothing, and convert to lowercase
-        const fileName = title.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s/g, '').toLowerCase();
-        return `assets/${fileName}.mp3`;
-    };
-
     const MOCK_DATA = {
         artists: [
             // Artist images still use placeholders
@@ -128,7 +122,7 @@
             { id: 3, name: 'Pop Dynamo', genre: 'Pop', image: PLACEHOLDER_ARTIST },
         ],
         songs: [
-            // FIXED: Using local asset path instead of SILENT_WAV_URI
+            // Image paths remain for display, audio path is fixed below
             { id: 101, title: 'Love Story (Version Orchestrale)', artist: 'Indila', album: 'Future Rhythms', duration: '4:58', image: 'assets/lovestory.jpg' },
             { id: 102, title: 'Cinnamon Girl', artist: 'Lana Del Rey', album: 'Future Rhythms', duration: '4:12', image: 'assets/CinnamonGirl.jpg' },
             { id: 103, title: 'I Think They Call This Love (Cover)', artist: 'Matthew Ifield', album: 'Cosmic Scales', duration: '3:17', image: 'assets/ithinktheycallthislove.jpg' },
@@ -144,14 +138,16 @@
 
     /**
      * Enhances MOCK_DATA with the correct audio path upon retrieval.
+     * FIX: Returns the silent WAV URI instead of a broken local file path.
      */
     const getSongById = (id) => {
         const song = MOCK_DATA.songs.find(s => s.id === id);
         if (song) {
             // Dynamically add the correct audio path based on the title
+            // FIX: Use the silent WAV URI instead of the relative path to ensure compatibility in isolated environments (like GitHub)
             return {
                 ...song,
-                audio: getAudioPath(song.title) 
+                audio: SILENT_WAV_URI 
             };
         }
         return null;
