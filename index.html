@@ -96,18 +96,34 @@
 
 <script>
     // --- Configuration and Mock Data ---
-    // MAPPING to local files provided by user (located in the assets folder on GitHub)
+    
+    // CRITICAL FIX: Base URL set to your specific raw GitHub content URL.
+    const GITHUB_PAGES_BASE_URL = 'https://raw.githubusercontent.com/thisisriteshverma/music-player/main/'; 
+
+    /**
+     * Converts a relative path (e.g., assets/file.mp3) into a raw GitHub content URL.
+     * @param {string} localPath - The relative path defined in the map.
+     * @returns {string} The absolute raw content URL.
+     */
+    const getRawUrl = (localPath) => {
+        // Ensure the base URL ends with a slash and remove leading slash from localPath if present
+        const baseUrl = GITHUB_PAGES_BASE_URL.endsWith('/') ? GITHUB_PAGES_BASE_URL : GITHUB_PAGES_BASE_URL + '/';
+        const cleanPath = localPath.startsWith('/') ? localPath.substring(1) : localPath;
+        return baseUrl + cleanPath;
+    }
+
+
     const AUDIO_FILE_MAP = {
         // ID 101: 'Love Story (Version Orchestrale)'
-        101: 'assets/lovestoryversionorchestrale.mp3', 
+        101: getRawUrl('assets/lovestoryversionorchestrale.mp3'), 
         // ID 102: 'Cinnamon Girl'
-        102: 'assets/CinnamonGirl.mp3', 
+        102: getRawUrl('assets/CinnamonGirl.mp3'), 
         // ID 103: 'I Think They Call This Love (Cover)'
-        103: 'assets/ithinktheycallthislovecover.mp3', 
+        103: getRawUrl('assets/ithinktheycallthislovecover.mp3'), 
         // ID 104: 'Young and Beautiful'
-        104: 'assets/Youngandbeautiful.mp3', 
+        104: getRawUrl('assets/Youngandbeautiful.mp3'), 
         // ID 105: 'Sweet but Psycho'
-        105: 'assets/sweetbutpsycho.mp3', 
+        105: getRawUrl('assets/sweetbutpsycho.mp3'), 
     };
 
     // --- Placeholder URLs (Fixed general placeholders) ---
@@ -148,7 +164,7 @@
     };
 
     /**
-     * Enhances MOCK_DATA with the correct local audio path upon retrieval.
+     * Enhances MOCK_DATA with the correct raw GitHub audio path upon retrieval.
      */
     const getSongById = (id) => {
         const song = MOCK_DATA.songs.find(s => s.id === id);
