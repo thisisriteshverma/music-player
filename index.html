@@ -97,7 +97,7 @@
 <script>
     // --- Configuration and Mock Data ---
     
-    // CRITICAL FIX: Base URL set to your specific raw GitHub content URL.
+    // CRITICAL FIX: Base URL set to your specific raw GitHub content URL to bypass 403 errors.
     const GITHUB_PAGES_BASE_URL = 'https://raw.githubusercontent.com/thisisriteshverma/music-player/main/'; 
 
     /**
@@ -114,15 +114,12 @@
 
 
     const AUDIO_FILE_MAP = {
-        // ID 101: 'Love Story (Version Orchestrale)'
+        // Corrected path based on repository file structure and case
         101: getRawUrl('assets/lovestoryversionorchestrale.mp3'), 
-        // ID 102: 'Cinnamon Girl'
         102: getRawUrl('assets/CinnamonGirl.mp3'), 
-        // ID 103: 'I Think They Call This Love (Cover)'
         103: getRawUrl('assets/ithinktheycallthislovecover.mp3'), 
-        // ID 104: 'Young and Beautiful'
-        104: getRawUrl('assets/Youngandbeautiful.mp3'), 
-        // ID 105: 'Sweet but Psycho'
+        // CRITICAL FIX FOR THIS SONG: Ensured correct capitalization from file upload image
+        104: getRawUrl('assets/YoungandBeautiful.mp3'), 
         105: getRawUrl('assets/sweetbutpsycho.mp3'), 
     };
 
@@ -1274,8 +1271,11 @@
                 renderCurrentView(); 
             }
         };
-        
-        // CRITICAL FIX: Removed the non-critical error log for silent URI.
+
+        // Add a generic error handler to the audio element for logging
+        elements.audio.onerror = function(e) {
+            console.error("Critical Audio Error: Cannot decode or find audio source.", elements.audio.src, e);
+        };
         
         // Load an initial track and render the app
         renderApp();
